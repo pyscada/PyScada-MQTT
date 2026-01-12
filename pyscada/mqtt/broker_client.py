@@ -131,3 +131,25 @@ class Device:
             if variable.mqttvariable.topic == msg.topic and variable.mqttvariable.timestamp_topic is None:
                 self.data_timestamp[msg.topic] = time()
 
+    def write_data(self, variable_id, value, task):
+        """
+        write value to a MQTT topic
+        """
+        output = []
+        if not self.broker.is_connected() and not self._connect():
+            return output
+
+        if variable_id not in self.variables:
+            return output
+
+
+        if not self.variables[variable_id].writeable:
+            return output
+
+        topic = self.variables[variable_id].mqttvariable.topic
+        self.broker.publish(topic, value)
+        if value is not None and self.variables[variable_id].update_values(
+            [value], [time()]
+        ):
+            output.append(self.variables[variable_id])
+        return output
