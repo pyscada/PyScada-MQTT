@@ -9,13 +9,13 @@ What is Working
 
  - subscribing to topics
  - subscribing to topics with timestamps
+ - publish to topics
 
 
 What is not Working/Missing
 ---------------------------
 
  - Documentation
- - publish to topics
 
 Installation
 ------------
