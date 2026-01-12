@@ -38,6 +38,7 @@ class Device:
         self.data = (
             {}
         )  # holds the raw data for each topic, Value is None if no new data is there
+        self.data_timestamp = {}  # hold the timestamps
         self.broker = mqtt_client.Client(mqtt_client.CallbackAPIVersion.VERSION2)
         self.broker.on_message = self.on_message
         self.broker.username = device.mqttbroker.username
@@ -84,15 +85,17 @@ class Device:
         """process the data that was recived from the broker since last call"""
         output = []
         keys_to_reset = []
+        if not self.broker.is_connected() and not self._connect():
+            return output
+
         for variable_id, variable in self.variables.items():
-            if self.data[variable.mqttvariable.topic] is not None:
+            if self.data.get(variable.mqttvariable.topic, None) is not None and variable.readable:
                 value = self.data[variable.mqttvariable.topic].decode("utf-8")
                 value = variable.mqttvariable.parse_value(value)
-                timestamp = time()
 
                 if variable.mqttvariable.timestamp_topic is not None:
-                    if self.data[variable.mqttvariable.timestamp_topic] is None:
-                        logger.debug("mqtt request_data timestamp_topic is None")
+                    if variable.mqttvariable.timestamp_topic not in self.data:
+                        logger.warning(f"mqtt request_data timestamp_topic not found for {variable}")
                         continue
 
                     timestamp = self.data[variable.mqttvariable.timestamp_topic].decode(
@@ -104,9 +107,14 @@ class Device:
 
                     keys_to_reset.append(variable.mqttvariable.timestamp_topic)
 
-                self.data[variable.mqttvariable.topic] = (
-                    None  # reset value for next loop, this is done here for the case that we recieved the value, but waiting for the timestamp
-                )
+                elif variable.mqttvariable.topic in self.data_timestamp:
+                    timestamp = self.data_timestamp.pop(variable.mqttvariable.topic)
+                else:
+                    timestamp = time()
+                    logger.warning(f"timestamp not saved when message was received for variable {variable}")
+
+                # reset value for next loop, this is done here for the case that we recieved the value, but waiting for the timestamp
+                keys_to_reset.append(variable.mqttvariable.topic)
 
                 if variable.update_values([value], [timestamp]):
                     output.append(variable)
@@ -116,7 +124,10 @@ class Device:
 
     def on_message(self, client, userdata, msg):
         """callback for new PUBLISH messages, is called on receive from Server"""
-        logger.debug(msg.topic + " " + str(msg.payload))
         if msg.topic not in self.data:
             return
         self.data[msg.topic] = msg.payload
+        for variable_id, variable in self.variables.items():
+            if variable.mqttvariable.topic == msg.topic and variable.mqttvariable.timestamp_topic is None:
+                self.data_timestamp[msg.topic] = time()
+
