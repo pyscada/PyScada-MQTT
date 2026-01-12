@@ -39,7 +39,6 @@ class Device:
             {}
         )  # holds the raw data for each topic, Value is None if no new data is there
         self.broker = mqtt_client.Client(mqtt_client.CallbackAPIVersion.VERSION2)
-        self.broker.on_connect = self.on_connect
         self.broker.on_message = self.on_message
         self.broker.username = device.mqttbroker.username
         self.broker.password = device.mqttbroker.password
@@ -49,9 +48,31 @@ class Device:
         """
         connect to the MQTT Broker
         """
-        status = self.broker.connect(self._address, int(self._port), int(self._timeout))
-        self.broker.loop_start()  # start the comunication thread
-        return status
+        try:
+            self.broker.connect(self._address, int(self._port), int(self._timeout))
+            self.broker.loop_start()  # start the comunication thread
+            try:
+                for variable in self.device.variable_set.filter(active=1):
+                    if not hasattr(variable, "mqttvariable"):
+                        continue
+                    self.variables[variable.pk] = variable
+                    if variable.readable:
+                        self.broker.subscribe(variable.mqttvariable.topic)  # value Topic
+                        self.data[variable.mqttvariable.topic] = None
+                        if variable.mqttvariable.timestamp_topic is not None:
+                            self.broker.subscribe(
+                                variable.mqttvariable.timestamp_topic
+                            )  # timestamp Topic
+                            self.data[variable.mqttvariable.timestamp_topic] = None
+            except:
+                logger.warning(traceback.format_exc())
+
+            return True
+        except TimeoutError:
+            logger.info("Cannot connect to the MQTT broker : timeout.")
+        except Exception as e:
+            logger.warning(f"Failed to connect to the MQTT broker : {e}")
+        return False
 
     def _disconnect(self):
         """
@@ -92,25 +113,6 @@ class Device:
         for key in keys_to_reset:
             self.data[key] = None  # reset value for next loop
         return output
-
-    def on_connect(self, client, userdata, flags, reason_code, properties):
-        """will be called if the client connects to the broker"""
-        # print(f"Connected with result code {reason_code}") FIXME add logging
-        logger.debug(f"mqtt on_connect {reason_code}")
-        try:
-            for variable in self.device.variable_set.filter(active=1):
-                if not hasattr(variable, "mqttvariable"):
-                    continue
-                self.variables[variable.pk] = variable
-                client.subscribe(variable.mqttvariable.topic)  # value Topic
-                self.data[variable.mqttvariable.topic] = None
-                if variable.mqttvariable.timestamp_topic is not None:
-                    client.subscribe(
-                        variable.mqttvariable.timestamp_topic
-                    )  # timestamp Topic
-                    self.data[variable.mqttvariable.timestamp_topic] = None
-        except:
-            logger.warning(traceback.format_exc())
 
     def on_message(self, client, userdata, msg):
         """callback for new PUBLISH messages, is called on receive from Server"""
