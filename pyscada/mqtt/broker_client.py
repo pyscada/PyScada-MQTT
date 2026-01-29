@@ -97,6 +97,8 @@ class Device:
                     if variable.mqttvariable.timestamp_topic not in self.data:
                         logger.warning(f"mqtt request_data timestamp_topic not found for {variable}")
                         continue
+                    if self.data[variable.mqttvariable.timestamp_topic] is None:
+                        continue
 
                     timestamp = self.data[variable.mqttvariable.timestamp_topic].decode(
                         "utf-8"
