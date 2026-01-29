@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 from pyscada import core
 
-__version__ = "0.0.0"
+__version__ = "0.1.0"
 __author__ = "Martin Schröder"
 __email__ = "team@pyscada.org"
 __description__ = "MQTT Client extension for PyScada a Python and Django based Open Source SCADA System"
