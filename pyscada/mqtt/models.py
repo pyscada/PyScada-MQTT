@@ -117,6 +117,8 @@ class MQTTVariable(models.Model):
                 return None
 
         try:
+            if type(input_value) is str and (input_value == 'unavailable' or input_value == 'null'):
+                return None
             return converter(input_value)
         except:
             logger.warning(traceback.format_exc())
