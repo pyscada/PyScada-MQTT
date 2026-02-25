@@ -70,7 +70,7 @@ class Device:
 
             return True
         except TimeoutError:
-            logger.info("Cannot connect to the MQTT broker : timeout.")
+            logger.warning("Cannot connect to the MQTT broker : timeout.")
         except Exception as e:
             logger.warning(f"Failed to connect to the MQTT broker : {e}")
         return False
@@ -79,13 +79,23 @@ class Device:
         """
         close the connection to the MQTT Broker
         """
+        self.broker.disconnect()
         self.broker.loop_stop()
+
+    def _check_connection(self):
+        """check the connection and reconnect when nessesary
+        """
+        if self.broker.is_connected():
+            return True
+        logger.warning(f"lost connection try to reconnect")
+        self.broker.disconnect()
+        return self._connect()
 
     def request_data(self):
         """process the data that was recived from the broker since last call"""
         output = []
         keys_to_reset = []
-        if not self.broker.is_connected() and not self._connect():
+        if not self._check_connection():
             return output
 
         for variable_id, variable in self.variables.items():
