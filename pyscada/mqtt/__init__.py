@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-from pyscada import core
-
 __version__ = "0.1.0"
 __author__ = "Martin Schröder"
 __email__ = "team@pyscada.org"
